@@ -2,6 +2,7 @@ from django.views import View
 from django.http import HttpRequest, JsonResponse
 from django.contrib.auth.models import User
 from .models import Task
+from datetime import datetime
 
 
 def user_convert_to_duct(customer: User) -> dict:
@@ -17,6 +18,23 @@ def user_convert_to_duct(customer: User) -> dict:
         'last_login': customer.last_login,
         'tasks': tasks,
     }
+
+
+
+def task_convert_to_dict(task: Task) -> dict:
+    print(task.customer)
+    return {
+        'id': task.id,
+        'title': task.title,
+        'description': task.description,
+        'is_completed': task.is_completed,
+        'created_at': task.created_at,
+        'updated_at': task.updated_at,
+        'deatline': task.deatline,
+        'importance': task.importance,
+        'customer': user_convert_to_duct(User.objects.get(username=task.customer)) 
+    }
+
 
 
 
@@ -61,4 +79,27 @@ class AddCustomerView(View):
         return JsonResponse({'user': user_convert_to_duct(customer)})
         
         
+class CreateTaskView(View):
+    def post(self, request: HttpRequest) -> JsonResponse:
+        data = request.POST
+        if not data.get('title'):
+            return JsonResponse({'status': 'title is required'})
+        elif not data.get('deatline'):
+            return JsonResponse({'status': 'deatline is required'})
+        elif not (data.get('username') or data.get('id')):
+            return JsonResponse({'status': 'need username or id'})
+        elif data.get('username'):  
+            customer = User.objects.get(username=data['username'])
+        elif data.get('id'):  
+            customer = User.objects.get(id=int(data['id']))
+
+        task = Task(
+            title = data['title'],
+            description = data.get('description', ''),
+            deatline = datetime.strptime(data['deatline'], '%Y-%m-%d %H:%M'),
+            importance = data.get('importance', 0),
+            customer = customer
+        )
+        task.save()
+        return JsonResponse({'task': task_convert_to_dict(task)})
 
